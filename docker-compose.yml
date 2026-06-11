@@ -1,0 +1,36 @@
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: postgres-db
+
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: Nihal37307
+      POSTGRES_DB: docintelli_rebuild
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: .
+
+    container_name: docintelli-api
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    depends_on:
+      - postgres
+
+    volumes:
+      - ./storage:/app/storage
+
+volumes:
+  postgres_data:
