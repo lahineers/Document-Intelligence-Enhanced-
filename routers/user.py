@@ -11,6 +11,8 @@ from schemas.user import(
     UserRead,
     UserUpdate
 )
+import logging
+logger=logging.getLogger(__name__)
 
 router=APIRouter(
     prefix="/users",
@@ -34,6 +36,7 @@ def create_user(
         session.add(user)
         session.commit()
     except IntegrityError:
+        logger.info("User creation Error"),
         session.rollback()
 
         raise HTTPException(
@@ -103,6 +106,7 @@ def update_user(
         session.commit()
     except IntegrityError:
         session.rollback()
+        logger.info("User Updation FAILED")
 
         raise HTTPException(
             status_code=400,

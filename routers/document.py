@@ -12,6 +12,8 @@ from schemas.document import(
     DocumentRead,
     DocumentUpdate
 )
+import logging
+logger=logging.getLogger(__name__)
 
 from services.upload_document_service import UploadDocumentService
 
@@ -54,6 +56,7 @@ async def create_document(
         session.commit()
 
     except IntegrityError:
+        logger.info("Failed to add Document")
         session.rollback()
 
         raise HTTPException(
@@ -71,7 +74,7 @@ async def create_document(
         )
 
     except Exception as e:
-
+        logger.info("Ingestion failed but document uploaded")
         raise HTTPException(
             status_code=500,
             detail=(
@@ -177,6 +180,7 @@ def update_document(
 
     if not document:
         raise HTTPException(
+            logger.info("Document not found"),
             status_code=404,
             detail="Document not found"
         )
@@ -192,6 +196,7 @@ def update_document(
         session.commit()
 
     except IntegrityError:
+        logger.info("Document Updation Failed")
         session.rollback()
 
         raise HTTPException(
@@ -215,6 +220,7 @@ def delete_document(
 
     if not document:
         raise HTTPException(
+            logger.info("Document deletion failed"),
             status_code=404,
             detail="Document not found"
         )

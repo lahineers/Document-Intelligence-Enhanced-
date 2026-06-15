@@ -1,7 +1,9 @@
 from openai import OpenAI
-from datetime import datetime
+from opentelemetry import trace
 
 from core.settings import settings
+
+tracer = trace.get_tracer(__name__)
 
 
 class LLMService:
@@ -28,47 +30,58 @@ class LLMService:
 
         client = cls._get_client()
 
-        print(
-            f"[{datetime.now()}] STEP 1: Client created"
-        )
+        with tracer.start_as_current_span(
+            "llm_generation"
+        ) as span:
 
-        start = datetime.now()
+            span.set_attribute(
+                "llm.provider",
+                "nvidia"
+            )
 
-        print(
-            f"[{start}] STEP 2: Calling NVIDIA"
-        )
+            span.set_attribute(
+                "llm.model",
+                settings.llm_model
+            )
 
-        response = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.1,
-            max_tokens=1000
-        )
+            response = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.1,
+                max_tokens=1000
+            )
 
-        end = datetime.now()
+            if (
+                hasattr(response, "usage")
+                and response.usage
+            ):
 
-        print(
-            f"[{end}] STEP 3: Response received"
-        )
-        print(
-            response.choices[0].message.content
-        )
+                span.set_attribute(
+                    "llm.prompt_tokens",
+                    response.usage.prompt_tokens
+                )
 
-        print(
-            f"NVIDIA call took: "
-            f"{(end - start).total_seconds():.2f}s"
-        )
+                span.set_attribute(
+                    "llm.completion_tokens",
+                    response.usage.completion_tokens
+                )
 
-        return (
-            response.choices[0].message.content
-        )
-    
+                span.set_attribute(
+                    "llm.total_tokens",
+                    response.usage.total_tokens
+                )
 
+            return (
+                response
+                .choices[0]
+                .message
+                .content
+            )
 
     @classmethod
     def answer_question(
@@ -86,31 +99,31 @@ class LLMService:
         )
 
         prompt = f"""
-    You are a document analysis assistant.
+You are a document analysis assistant.
 
-    Use the previous conversation when it is relevant.
+Use the previous conversation when it is relevant.
 
-    Use only the provided document context for factual information.
+Use only the provided document context for factual information.
 
-    Provide a complete answer.
+Provide a complete answer.
 
-    Do not stop after one item.
+Do not stop after one item.
 
-    If the answer contains a list, include every item found in the context.
+If the answer contains a list, include every item found in the context.
 
-    If the information is not available in the document context, say so.
+If the information is not available in the document context, say so.
 
-    Previous Conversation:
-    {memory_context}
+Previous Conversation:
+{memory_context}
 
-    Document Context:
-    {context}
+Document Context:
+{context}
 
-    Question:
-    {question}
+Question:
+{question}
 
-    Answer:
-    """
+Answer:
+"""
 
         return cls.generate_response(
             prompt

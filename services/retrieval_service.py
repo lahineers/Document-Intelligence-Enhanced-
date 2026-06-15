@@ -3,9 +3,10 @@ from uuid import UUID
 from models.document_chunk import DocumentChunk
 from models.chunk_embedding import ChunkEmbedding
 
-from services.embedding_service import (
-    EmbeddingService
-)
+from services.embedding_service import EmbeddingService
+
+from opentelemetry import trace
+tracer=trace.get_tracer(__name__)
 
 
 class RetrievalService:
@@ -17,38 +18,50 @@ class RetrievalService:
         session: Session,
         top_k: int = 5
     ):
-
-        query_embedding = (
-            EmbeddingService
-            .generate_embedding(
-                query
-            )
-        )
-
-        statement = (
-            select(DocumentChunk)
-            .join(
-                ChunkEmbedding,
-                ChunkEmbedding.chunk_id
-                == DocumentChunk.chunk_id
-            )
-            .where(
-                DocumentChunk.doc_id
-                == document_id
-            )
-            .order_by(
-                ChunkEmbedding.embedding
-                .cosine_distance(
-                    query_embedding
+        with tracer.start_as_current_span("RAG-Generate Query Embedding"):
+            query_embedding = (
+                EmbeddingService
+                .generate_embedding(
+                    query
                 )
             )
-            .limit(top_k)
-        )
 
-        chunks = (
-            session
-            .exec(statement)
-            .all()
-        )
+        with tracer.start_as_current_span("RAG-Retrieve Chunks") as span:
+            statement = (
+                select(DocumentChunk)
+                .join(
+                    ChunkEmbedding,
+                    ChunkEmbedding.chunk_id
+                    == DocumentChunk.chunk_id
+                )
+                .where(
+                    DocumentChunk.doc_id
+                    == document_id
+                )
+                .order_by(
+                    ChunkEmbedding.embedding
+                    .cosine_distance(
+                        query_embedding
+                    )
+                )
+                .limit(top_k)
+            )
+
+            chunks = (
+                session
+                .exec(statement)
+                .all()
+            )
+
+            span.set_attribute(
+                "retrieval.chunk_count",
+                len(chunks)
+            )
+
+            span.set_attribute(
+                "retrieval.top_k",
+                top_k
+            )
+
 
         return chunks

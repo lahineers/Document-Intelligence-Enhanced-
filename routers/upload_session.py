@@ -11,6 +11,9 @@ from schemas.upload_session import(
     UploadSessionUpdate
 )
 
+import logging
+logger=logging.getLogger(__name__)
+
 router=APIRouter(
     prefix="/upload_session",
     tags=["Upload Session"]
@@ -29,6 +32,7 @@ def create_upload_session(
         session.add(upload_session)
         session.commit()
     except IntegrityError:
+        logger.info("Failed to create uplaod session")
         session.rollback()
 
         raise HTTPException(
@@ -97,6 +101,7 @@ def update_uploadsession(
     try:
         session.commit()
     except IntegrityError:
+        logger.info("Failed to update uplaod session"),
         session.rollback()
 
         raise HTTPException(

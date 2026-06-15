@@ -9,6 +9,8 @@ from schemas.document_chunk import(
     DocumentChunkCreate,
     DocumentChunkRead
 )
+import logging
+logger=logging.getLogger(__name__)
 
 router=APIRouter(
     prefix="/document_chunk",
@@ -33,6 +35,7 @@ def create_document_chunk(
         session.commit()
 
     except IntegrityError:
+        logger.exception("Chunk creation Failed")
         session.rollback()
 
         raise HTTPException(
@@ -71,6 +74,7 @@ def read_document_chunk(
 
     if not document_chunk:
         raise HTTPException(
+            logger.info("Chunk not found"),
             status_code=404,
             detail="Chunk not found"
         )
@@ -90,6 +94,7 @@ def delete_document_chunk(
 
     if not document_chunk:
         raise HTTPException(
+            logger.info("Chunk not found"),
             status_code=404,
             detail="Chunk not found"
         )

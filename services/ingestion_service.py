@@ -7,6 +7,11 @@ from services.chunking_service import ChunkingService
 from services.document_chunk_service import DocumentChunkService
 from services.chunk_embedding_service import ChunkEmbeddingService
 
+from opentelemetry import trace
+tracer = trace.get_tracer(__name__)
+
+import logging 
+logger=logging.getLogger(__name__)
 
 class IngestionService:
 
@@ -25,60 +30,80 @@ class IngestionService:
             raise ValueError(
                 f"Document not found: {doc_id}"
             )
+        
+        logger.info("Starting document ingestion")
 
-        print(
-            f"Starting ingestion for {doc_id}"
-        )
-
-        markdown_content = (
-            PDFExtractionService
-            .extract_markdown(
-                document.doc_path
+        with tracer.start_as_current_span(
+            "pdf_extraction"
+        ):
+            markdown_content = (
+                PDFExtractionService
+                .extract_markdown(
+                    document.doc_path
+                )
             )
-        )
-
-        print(markdown_content[:3000])
 
         markdown_content = (
             markdown_content
             .replace("￾", "")
         )
 
-        print(
-            "Markdown extraction completed"
-        )
+        with tracer.start_as_current_span(
+            "chunk_generation"
+        ) as span:
 
-        chunks = (
-            ChunkingService
-            .chunk_document(
-                markdown_content
+            chunks = (
+                ChunkingService
+                .chunk_document(
+                    markdown_content
+                )
             )
-        )
 
-        print(
-            f"Created {len(chunks)} chunks"
-        )
+            span.set_attribute(
+                "chunk.count",
+                len(chunks)
+            )
 
-        DocumentChunkService.create_chunks_for_document(
-            doc_id,
-            chunks,
-            session
-        )
+            logger.info(
+                f"Chunk generation complete"
+                f"chunks created:{len(chunks)}"
+            )
 
-        print(
-            "Chunks stored"
-        )
+        with tracer.start_as_current_span(
+            "chunk_storage"
+        ):
 
-        embeddings = (
-            ChunkEmbeddingService
-            .create_embeddings_for_document(
+            DocumentChunkService.create_chunks_for_document(
                 doc_id,
+                chunks,
                 session
             )
-        )
 
-        print(
-            f"Created {len(embeddings)} embeddings"
+        with tracer.start_as_current_span(
+            "embedding_generation"
+        ) as span:
+
+            embeddings = (
+                ChunkEmbeddingService
+                .create_embeddings_for_document(
+                    doc_id,
+                    session
+                )
+            )
+
+            span.set_attribute(
+                "embedding.count",
+                len(embeddings)
+            )
+            logger.info(
+                f"Embedding generation complete"
+                f"Embeddings created: {len(embeddings)}"
+            )
+        
+        logger.info(
+            f"Document Ingestion complete"
+            f"Chunks: {len(chunks)}"
+            f"Embeddings: {len(embeddings)}"
         )
 
         return {

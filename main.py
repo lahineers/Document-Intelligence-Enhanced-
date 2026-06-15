@@ -13,7 +13,14 @@ from routers.insights import router as insight_router
 from routers.query import router as query_router
 from routers.comparison import router as comparison_router
 
+from core.telemetry import setup_telemetry
+
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+setup_telemetry()
+
 app=FastAPI()
+FastAPIInstrumentor.instrument_app(app)
 
 @app.on_event("startup")
 def on_startup():

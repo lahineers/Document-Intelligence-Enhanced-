@@ -6,6 +6,12 @@ from agents.tools import Tools
 from agno.models.openai import OpenAIChat
 from core.settings import settings
 
+from opentelemetry import trace
+tracer = trace.get_tracer(__name__)
+
+import logging
+logger=logging.getLogger(__name__)
+
 class AnalysisAgent:
     agent = Agent(
         name="Analysis Agent",
@@ -205,64 +211,94 @@ At the end of every response include the following note:
 
 
     @staticmethod
-    def answer_question(question,document_id,session):
-        chunks=(
-            RetrievalAgent.retrieve(question,document_id,session)
-        )
+    def answer_question(
+        question,
+        document_id,
+        session
+    ):
+        logger.info("processing question")
 
-        context = "\n\n".join(
-            chunk.chunk_text
-            for chunk in chunks
-        )
+        with tracer.start_as_current_span(
+            "RAG - Answer Question"
+        ) as span:
 
-        memory_context = (
-            MemoryAgent
-            .build_context(
-                session
+            chunks = (
+                RetrievalAgent.retrieve(
+                    question,
+                    document_id,
+                    session
+                )
             )
-        )
 
-        print(
-            "MEMORY CONTEXT:"
-        )
+            logger.info(f"Retrieved {len(chunks)} chunks")
 
-        print(
-            memory_context
-        )
+            span.set_attribute(
+                "rag.chunk_count",
+                len(chunks)
+            )
 
-        response = AnalysisAgent.agent.run(
-            f"""
-            Previous Conversation:
-            {memory_context}
+            context = "\n\n".join(
+                chunk.chunk_text
+                for chunk in chunks
+            )
 
-            Context:
-            {context}
+            memory_context = (
+                MemoryAgent
+                .build_context(
+                    session
+                )
+            )
 
-            Question:
-            {question}
-            """
-        )
+            with tracer.start_as_current_span(
+                "LLM - Generate Answer"
+            ):
 
-        print("RESPONSE TYPE:")
-        print(type(response))
+                response = AnalysisAgent.agent.run(
+                    f"""
+                    Previous Conversation:
+                    {memory_context}
 
-        print("RESPONSE:")
-        print(response)
+                    Context:
+                    {context}
 
-        return{
-            "answer":response.content,
-            "sources":chunks
-        }
+                    Question:
+                    {question}
+                    """
+                )
+                logger.info("Answer Generated")
+
+            return {
+                "answer": response.content,
+                "sources": chunks
+            }
     
     @staticmethod
     def compare_documents(
         question,
-        document_ids,session
+        document_ids,
+        session
     ):
-        Tools.set_session(session)
-        comparison=(Tools.compare_documents(
-            question=question,
-            document_ids=document_ids,
-        ))
+        logger.info(f"Starting comparison for {len(document_ids)} documents")
+        with tracer.start_as_current_span(
+            "RAG - Compare Documents"
+        ) as span:
+        
 
-        return{"comparison":comparison}
+            span.set_attribute(
+                "comparison.document_count",
+                len(document_ids)
+            )
+
+            Tools.set_session(session)
+
+            comparison = (
+                Tools.compare_documents(
+                    question=question,
+                    document_ids=document_ids,
+                )
+            )
+            logger.info("Document comparison completed")
+
+            return {
+                "comparison": comparison
+            }
