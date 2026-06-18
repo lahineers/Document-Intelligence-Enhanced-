@@ -8,13 +8,16 @@ class DocumentSummaryCreate(SQLModel):
     doc_id: UUID
     content: str
     model_used: str
+    key_metrics: Dict[str, Any] = {}
 
 
 class DocumentSummaryRead(SQLModel):
-    document_summary_id: UUID
-    document_id: UUID
-    summary_type:str
+    summary_id: UUID
+    doc_id: UUID
+
     content: str
     model_used: str
-    key_metrics:Dict[str,Any]
+
+    key_metrics: Dict[str, Any]
+
     generated_at: Optional[datetime] = None

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from db import create_db_and_tables
 from routers.user import router as user_router
 from routers.upload_session import router as upload_session_router
@@ -21,6 +22,16 @@ setup_telemetry()
 
 app=FastAPI()
 FastAPIInstrumentor.instrument_app(app)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def on_startup():

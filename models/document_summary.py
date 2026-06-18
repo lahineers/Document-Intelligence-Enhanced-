@@ -15,7 +15,7 @@ class DocumentSummary(SQLModel, table=True):
         foreign_key="Document.doc_id",
         index=True
     )
-    summary_type:str
+
     content:str
     model_used:str
     key_metrics:Dict[str,Any]=Field(

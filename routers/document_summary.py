@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException,Query
 from typing import Annotated
 from sqlmodel import select
-from db import SessionDep
+from db import SessionDep 
 from uuid import UUID
 from models.document_summary import DocumentSummary
 from schemas.document_summary import(
@@ -9,10 +9,26 @@ from schemas.document_summary import(
     DocumentSummaryRead
 )
 
+from services.document_summary_service import DocumentSummaryService
+
 router=APIRouter(
     prefix="/document_summary",
     tags=["DocumentSummary"]
 )
+
+@router.post("/{doc_id}/generate")
+def generate_summary(
+    doc_id: UUID,
+    session: SessionDep
+):
+
+    return (
+        DocumentSummaryService
+        .generate_summary(
+            doc_id,
+            session
+        )
+    )
 
 
 @router.get("/{document_summary_id}",

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException,Query
 from fastapi import UploadFile,File,Form
+from fastapi import Cookie
 from pathlib import Path
 from typing import Annotated
 from sqlmodel import select
@@ -33,11 +34,12 @@ router=APIRouter(
 @router.post("", response_model=DocumentRead)
 async def create_document(
     file: UploadFile = File(...),
-    user_id: UUID = Form(...),
-    session_id: UUID = Form(...),
+    user_id: UUID = Cookie(...),
+    session_id: UUID = Cookie(...),
     doc_type: str = Form(...),
     session: SessionDep = None
 ):
+
     saved_path = await (
         UploadDocumentService.save_file(file)
     )
@@ -144,7 +146,7 @@ def read_documents(
 ):
     documents = (
         session.exec(
-            select(Document)
+            select(Document).order_by(Document.upload_time.desc())
             .offset(offset)
             .limit(limit)
         )
