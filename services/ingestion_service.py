@@ -1,7 +1,7 @@
 from sqlmodel import Session
 
 from models.document import Document
-
+from services.minio_service import minio_service
 from services.PDFExtractionService import PDFExtractionService
 from services.chunking_service import ChunkingService
 from services.document_chunk_service import DocumentChunkService
@@ -35,11 +35,22 @@ class IngestionService:
 
         with tracer.start_as_current_span(
             "pdf_extraction"
-        ):
+        ) as span:
+            pdf_bytes = (
+                minio_service.download_bytes(
+                    document.doc_path
+                )
+            )
+
+            span.set_attribute(
+                "pdf.size_bytes",
+                len(pdf_bytes)
+            )
+
             markdown_content = (
                 PDFExtractionService
-                .extract_markdown(
-                    document.doc_path
+                .extract_markdown_from_bytes(
+                    pdf_bytes
                 )
             )
 

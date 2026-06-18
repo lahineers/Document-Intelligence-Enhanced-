@@ -4,6 +4,8 @@ from uuid import uuid4
 from fastapi import UploadFile
 from core.settings import settings
 
+from services.minio_service import minio_service
+
 class UploadDocumentService:
 
     @staticmethod
@@ -13,11 +15,7 @@ class UploadDocumentService:
     
     #save uploaded file locally and return metadata
 
-        upload_dir=Path(settings.upload_dir)
-        upload_dir.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+
 
         if not file.filename:
             raise ValueError(
@@ -42,21 +40,21 @@ class UploadDocumentService:
             f"{uuid4()}{extension}"
         )
 
-        saved_path=(
-            upload_dir
-            / generated_filename
-        )
+        
         content=await file.read()
+
+        object_key = (f"raw/{generated_filename}")
+
+        minio_service.upload_bytes(
+            data=content,
+            object_key=object_key,
+            content_type=file.content_type or "application/octet-stream"
+        )
 
         if not content:
             raise ValueError(
                 "Uploaded file is empty"
             )
         
-        with open(
-            saved_path,
-            "wb"
-        ) as f:
-            f.write(content)
-
-        return str(saved_path)
+        return object_key
+        

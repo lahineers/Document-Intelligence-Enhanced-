@@ -1,5 +1,7 @@
 from pathlib import Path
 import pymupdf4llm
+import fitz
+
 
 class PDFExtractionService:
 
@@ -20,3 +22,15 @@ class PDFExtractionService:
         )
 
         return markdown_content
+    
+    @staticmethod
+    def extract_markdown_from_bytes(
+        pdf_bytes: bytes
+    ) -> str:
+
+        doc = fitz.open(
+            stream=pdf_bytes,
+            filetype="pdf"
+        )
+
+        return pymupdf4llm.to_markdown(doc)

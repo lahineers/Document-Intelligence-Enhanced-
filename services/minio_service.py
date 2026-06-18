@@ -1,7 +1,8 @@
 from minio import Minio
 
 from core.settings import settings
-
+ 
+from io import BytesIO
 
 class MinioService:
 
@@ -28,3 +29,29 @@ class MinioService:
             object_name=object_key,
             file_path=destination_path
         )
+
+
+    def upload_bytes(self, data: bytes, object_key: str, content_type: str):
+        self.client.put_object(
+            bucket_name=self.bucket,
+            object_name=object_key,
+            data=BytesIO(data),
+            length=len(data),
+            content_type=content_type
+        )
+
+    def download_bytes(self, object_key: str) -> bytes:
+        response = self.client.get_object(
+            bucket_name=self.bucket,
+            object_name=object_key
+        )
+
+        try:
+            return response.read()
+
+        finally:
+            response.close()
+            response.release_conn()
+
+
+minio_service = MinioService()
