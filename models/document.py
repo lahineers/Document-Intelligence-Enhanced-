@@ -21,7 +21,11 @@ class Document(SQLModel, table=True):
     doc_type: str
     file_name: str
     file_type: str
+
     doc_path:str
+    
+    markdown_object_key: Optional[str] = None
+
     page_count:int=0
     file_size_bytes: int = 0
     upload_time: datetime=Field(

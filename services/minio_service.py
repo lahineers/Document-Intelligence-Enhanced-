@@ -53,5 +53,13 @@ class MinioService:
             response.close()
             response.release_conn()
 
+    
+    def upload_text(self, text: str, object_key: str):
+        self.upload_bytes(
+            data=text.encode("utf-8"),
+            object_key=object_key,
+            content_type="text/markdown"
+        )
+
 
 minio_service = MinioService()

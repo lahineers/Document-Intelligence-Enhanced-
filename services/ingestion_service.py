@@ -59,6 +59,22 @@ class IngestionService:
             .replace("￾", "")
         )
 
+        markdown_key = (
+            f"extracted/{document.doc_id}.md"
+        )
+
+        minio_service.upload_text(
+            markdown_content,
+            markdown_key
+        )
+
+        document.markdown_object_key = (
+            markdown_key
+        )
+
+        session.add(document)
+        session.commit()
+
         with tracer.start_as_current_span(
             "chunk_generation"
         ) as span:

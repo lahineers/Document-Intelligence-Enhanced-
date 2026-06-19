@@ -27,6 +27,8 @@ class DocumentRead(SQLModel):
     file_name: str
     file_type: str
 
+    markdown_object_key: str | None = None
+
     doc_path: str
 
     page_count: int
