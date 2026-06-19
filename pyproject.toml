@@ -19,6 +19,7 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy>=0.63b1",
     "opentelemetry-sdk>=1.42.1",
     "pgvector>=0.4.2",
+    "pika>=1.4.1",
     "psycopg[binary]>=3.3.4",
     "pwdlib[argon2]>=0.3.0",
     "pydantic>=2.13.4",

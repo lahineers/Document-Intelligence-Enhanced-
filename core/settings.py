@@ -26,6 +26,14 @@ class Settings(BaseSettings):
 
     minio_secure: bool = False
 
+    rabbitmq_host: str
+
+    rabbitmq_port: int
+
+    rabbitmq_user: str
+
+    rabbitmq_password: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"

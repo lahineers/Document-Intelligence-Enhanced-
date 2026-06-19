@@ -1,17 +1,28 @@
-import fitz
-import pymupdf4llm
+import pika
+import json
 
-from services.minio_service import minio_service
-
-pdf_bytes = minio_service.download_bytes(
-    "raw/8394f197-76ec-43b8-a6bc-a9a620541e7d.pdf"
+credentials = pika.PlainCredentials(
+    "Nihal",
+    "Nihal373707"
 )
 
-doc = fitz.open(
-    stream=pdf_bytes,
-    filetype="pdf"
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters(
+        host="localhost",
+        port=5672,
+        credentials=credentials
+    )
 )
 
-markdown = pymupdf4llm.to_markdown(doc)
+channel = connection.channel()
 
-print(len(markdown))
+channel.basic_publish(
+    exchange="",
+    routing_key="document.extraction.queue",
+    body=json.dumps({
+        "document_id": "740a3d48-ce2e-4f9b-8728-ce05290dea99"
+    })
+)
+
+print("Published")
+connection.close()
