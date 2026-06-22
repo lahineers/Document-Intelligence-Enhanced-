@@ -80,6 +80,59 @@ services:
 
     volumes:
       - ./storage:/app/storage
+  chunking-worker:
+    build: .
+
+    container_name: docintelli-chunking-worker
+
+    command: python -m workers.chunking_worker
+
+    env_file:
+      - .env
+
+    depends_on:
+      - postgres
+      - minio
+      - rabbitmq
+
+    volumes:
+      - ./storage:/app/storage
+  
+  embedding-worker:
+    build: .
+
+    container_name: docintelli-embedding-worker
+
+    command: python -m workers.embedding_worker
+
+    env_file:
+      - .env
+
+    depends_on:
+      - postgres
+      - minio
+      - rabbitmq
+
+    volumes:
+      - ./storage:/app/storage
+  
+  summary-worker:
+    build: .
+
+    container_name: docintelli-summary-worker
+
+    command: python -m workers.summary_worker
+
+    env_file:
+      - .env
+
+    depends_on:
+      - postgres
+      - minio
+      - rabbitmq
+
+    volumes:
+      - ./storage:/app/storage
 
 volumes:
   postgres_data:

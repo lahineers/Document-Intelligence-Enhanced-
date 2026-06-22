@@ -10,7 +10,9 @@ connection = pika.BlockingConnection(
     pika.ConnectionParameters(
         host="localhost",
         port=5672,
-        credentials=credentials
+        credentials=credentials,
+        heartbeat=600,
+        blocked_connection_timeout=600
     )
 )
 

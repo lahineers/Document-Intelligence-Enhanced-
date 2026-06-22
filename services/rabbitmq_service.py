@@ -17,7 +17,9 @@ class RabbitMQService:
             pika.ConnectionParameters(
                 host=settings.rabbitmq_host,
                 port=settings.rabbitmq_port,
-                credentials=credentials
+                credentials=credentials,
+                heartbeat=600,
+                blocked_connection_timeout=600
             )
         )
 
@@ -27,6 +29,20 @@ class RabbitMQService:
             queue="document.extraction.queue",
             durable=True
         )
+        self.channel.queue_declare(
+            queue="document.chunking.queue",
+            durable=True
+        )
+
+        self.channel.queue_declare(
+            queue="document.embedding.queue",
+            durable=True
+        )
+        self.channel.queue_declare(
+            queue="document.summary.queue",
+            durable=True
+        )
+
 
     def publish_message(
         self,
@@ -45,6 +61,3 @@ class RabbitMQService:
 
     def close(self):
         self.connection.close()
-
-
-rabbitmq_service=RabbitMQService()

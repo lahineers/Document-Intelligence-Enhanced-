@@ -24,7 +24,9 @@ while True:
             pika.ConnectionParameters(
                 host=settings.rabbitmq_host,
                 port=settings.rabbitmq_port,
-                credentials=credentials
+                credentials=credentials,
+                heartbeat=600,
+                blocked_connection_timeout=600
             )
         )
 

@@ -16,6 +16,8 @@ from schemas.document import(
 import logging
 logger=logging.getLogger(__name__)
 
+from services.rabbitmq_service import RabbitMQService
+
 from services.upload_document_service import UploadDocumentService
 
 #testing:
@@ -68,22 +70,16 @@ async def create_document(
 
     session.refresh(document)
 
-    try:
+    rabbitmq_service = RabbitMQService()
 
-        IngestionService.ingest_document(
-            document.doc_id,
-            session
-        )
-
-    except Exception as e:
-        logger.info("Ingestion failed but document uploaded")
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                f"Document uploaded "
-                f"but ingestion failed: {str(e)}"
-            )
-        )
+    rabbitmq_service.publish_message(
+        "document.extraction.queue",
+        {
+            "document_id": str(document.doc_id)
+        }
+    )
+    
+    rabbitmq_service.close()
 
     return document
 

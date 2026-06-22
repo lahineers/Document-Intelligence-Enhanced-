@@ -53,6 +53,15 @@ class MinioService:
             response.close()
             response.release_conn()
 
+
+    def download_text(self, object_key: str) -> str:
+        return (
+            self.download_bytes(
+                object_key
+            )
+            .decode("utf-8")
+        )
+
     
     def upload_text(self, text: str, object_key: str):
         self.upload_bytes(

@@ -1,17 +1,18 @@
 from sqlmodel import Session
 
 from models.document import Document
+
 from services.minio_service import minio_service
 from services.PDFExtractionService import PDFExtractionService
-from services.chunking_service import ChunkingService
-from services.document_chunk_service import DocumentChunkService
-from services.chunk_embedding_service import ChunkEmbeddingService
+from services.rabbitmq_service import RabbitMQService
 
 from opentelemetry import trace
-tracer = trace.get_tracer(__name__)
 
-import logging 
-logger=logging.getLogger(__name__)
+import logging
+
+tracer = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
+
 
 class IngestionService:
 
@@ -26,16 +27,23 @@ class IngestionService:
             doc_id
         )
 
+        document.processing_status = "extracting"
+        session.add(document)
+        session.commit()
+
         if not document:
             raise ValueError(
                 f"Document not found: {doc_id}"
             )
-        
-        logger.info("Starting document ingestion")
+
+        logger.info(
+            f"Starting extraction for document {doc_id}"
+        )
 
         with tracer.start_as_current_span(
             "pdf_extraction"
         ) as span:
+
             pdf_bytes = (
                 minio_service.download_bytes(
                     document.doc_path
@@ -63,77 +71,65 @@ class IngestionService:
             f"extracted/{document.doc_id}.md"
         )
 
-        minio_service.upload_text(
-            markdown_content,
-            markdown_key
-        )
+        with tracer.start_as_current_span(
+            "markdown_storage"
+        ) as span:
 
-        document.markdown_object_key = (
-            markdown_key
-        )
+            minio_service.upload_text(
+                markdown_content,
+                markdown_key
+            )
 
+            span.set_attribute(
+                "markdown.object_key",
+                markdown_key
+            )
+
+        document.markdown_object_key = markdown_key
+        document.processing_status = "extracted"
         session.add(document)
         session.commit()
 
-        with tracer.start_as_current_span(
-            "chunk_generation"
-        ) as span:
-
-            chunks = (
-                ChunkingService
-                .chunk_document(
-                    markdown_content
-                )
-            )
-
-            span.set_attribute(
-                "chunk.count",
-                len(chunks)
-            )
-
-            logger.info(
-                f"Chunk generation complete"
-                f"chunks created:{len(chunks)}"
-            )
-
-        with tracer.start_as_current_span(
-            "chunk_storage"
-        ):
-
-            DocumentChunkService.create_chunks_for_document(
-                doc_id,
-                chunks,
-                session
-            )
-
-        with tracer.start_as_current_span(
-            "embedding_generation"
-        ) as span:
-
-            embeddings = (
-                ChunkEmbeddingService
-                .create_embeddings_for_document(
-                    doc_id,
-                    session
-                )
-            )
-
-            span.set_attribute(
-                "embedding.count",
-                len(embeddings)
-            )
-            logger.info(
-                f"Embedding generation complete"
-                f"Embeddings created: {len(embeddings)}"
-            )
-        
         logger.info(
-            f"Document Ingestion complete"
-            f"Chunks: {len(chunks)}"
-            f"Embeddings: {len(embeddings)}"
+            f"Markdown stored at {markdown_key}"
         )
 
-        return {
-            "chunks_created": len(chunks),
-            "embeddings_created": len(embeddings)
-        }
+        with tracer.start_as_current_span(
+            "publish_chunking_job"
+        ) as span:
+
+            rabbitmq_service = RabbitMQService()
+
+            rabbitmq_service.publish_message(
+                "document.chunking.queue",
+                {
+                    "document_id": str(doc_id)
+                }
+            )
+
+            rabbitmq_service.publish_message(
+                "document.summary.queue",
+                {
+                    "document_id": str(doc_id)
+                }
+            )
+
+            rabbitmq_service.close()
+
+            span.set_attribute(
+                "document.id",
+                str(doc_id)
+            )
+
+            span.set_attribute(
+                "queue.name",
+                "document.chunking.queue"
+            )
+
+        logger.info(
+            f"Chunking job published for document {doc_id}"
+        )
+
+        logger.info(
+            f"Extraction pipeline completed for document {doc_id}"
+        )
