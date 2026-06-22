@@ -182,7 +182,8 @@ class ChunkingService:
         )
 
         print(
-            f"Sections Found: {len(sections)}"
+            f"Sections Found: {len(sections)}",
+            flush=True
         )
 
         # Fallback if heading detection fails
@@ -215,14 +216,7 @@ class ChunkingService:
 
             return results
 
-        for section in sections[:20]:
-
-            print("\n")
-            print("=" * 80)
-
-            print(
-                section["section_title"]
-            )
+       
 
         results = []
 

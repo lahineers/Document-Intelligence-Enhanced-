@@ -5,6 +5,7 @@ from sqlmodel import Session
 print("WORKER STARTING", flush=True)
 
 import models
+from models.document import Document
 from db import engine
 from services.ingestion_service import IngestionService
 
@@ -64,6 +65,20 @@ def callback(ch, method, properties, body):
 
         with Session(engine) as session:
 
+            document = session.get(
+                Document,
+                document_id
+            )
+
+            if document:
+
+                document.processing_status = (
+                    "processing"
+                )
+
+                session.add(document)
+                session.commit()
+
             IngestionService.ingest_document(
                 document_id,
                 session
@@ -86,6 +101,22 @@ def callback(ch, method, properties, body):
             f"Processing failed: {e}",
             flush=True
         )
+
+        with Session(engine) as session:
+
+            document = session.get(
+                Document,
+                document_id
+            )
+
+            if document:
+
+                document.processing_status = (
+                    "failed"
+                )
+
+                session.add(document)
+                session.commit()
 
 channel.basic_qos(
     prefetch_count=1

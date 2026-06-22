@@ -92,12 +92,7 @@ def callback(
                     f"Document not found: {document_id}"
                 )
 
-            document.processing_status = (
-                "embedding"
-            )
-
-            session.add(document)
-            session.commit()
+            
 
             embeddings = (
                 ChunkEmbeddingService
