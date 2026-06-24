@@ -1,30 +1,36 @@
-import pika
-import json
-
-credentials = pika.PlainCredentials(
-    "Nihal",
-    "Nihal373707"
+from openai import OpenAI
+import time
+from core.settings import settings
+client = OpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=settings.nvidia_api_key,
+    timeout=60
 )
 
-connection = pika.BlockingConnection(
-    pika.ConnectionParameters(
-        host="localhost",
-        port=5672,
-        credentials=credentials,
-        heartbeat=600,
-        blocked_connection_timeout=600
+start = time.time()
+
+try:
+
+    response = client.chat.completions.create(
+        model="google/gemma-3-4b-it",
+        messages=[
+            {
+                "role": "user",
+                "content": "Say hello."
+            }
+        ],
+        max_tokens=10
     )
-)
 
-channel = connection.channel()
+    print(
+        f"Completed in {time.time() - start:.2f}s"
+    )
 
-channel.basic_publish(
-    exchange="",
-    routing_key="document.extraction.queue",
-    body=json.dumps({
-        "document_id": "740a3d48-ce2e-4f9b-8728-ce05290dea99"
-    })
-)
+    print(
+        response.choices[0].message.content
+    )
 
-print("Published")
-connection.close()
+except Exception as e:
+
+    print(type(e).__name__)
+    print(e)

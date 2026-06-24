@@ -130,6 +130,18 @@ def callback(ch, method, properties, body):
                 flush=True
             )
 
+            rabbitmq_service.publish_message(
+                "document.summary.queue",
+                {
+                    "document_id": str(document_id)
+                }
+            )
+
+            print(
+                f"Published summary job for {document_id}",
+                flush=True
+            )
+
             rabbitmq_service.close()
 
         ch.basic_ack(

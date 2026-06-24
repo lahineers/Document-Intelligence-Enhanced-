@@ -1,4 +1,11 @@
 from sqlmodel import Session
+from sqlmodel import select
+
+from models.document_chunk import DocumentChunk
+
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
 
 from models.document_summary import (
     DocumentSummary
@@ -12,89 +19,201 @@ from services.llm_service import (
 class DocumentSummaryService:
 
     @staticmethod
+    def summarize_chunk(
+        heading: str,
+        page_number: int,
+        chunk_text: str
+    ) -> str:
+
+        prompt = f"""
+        You are a senior financial analyst.
+
+        Summarize the following section.
+
+        Section Heading:
+        {heading}
+
+        Page Number:
+        {page_number}
+
+        Return the result in this format:
+
+        ## {heading}
+
+        - Important point 1
+        - Important point 2
+        - Important point 3
+
+        Rules:
+        - Maximum 5 bullet points.
+        - Maximum 100 words total.
+        - Focus on financial metrics, business performance, strategy and risks.
+        - Do not explain.
+        - Do not repeat information.
+        - Do not invent facts.
+        - If nothing important is present, write:
+        - No significant information found.
+
+        Section Content:
+
+        {chunk_text}
+        """
+
+
+        return (
+                LLMService.generate_response(
+                    prompt
+                )
+            )
+
+    @staticmethod
     def generate_summary(
         doc_id,
         markdown_content: str,
         session: Session
     ):
-        
 
+       
+        chunks = (
+            session.exec(
+                select(DocumentChunk)
+                .where(
+                    DocumentChunk.doc_id == doc_id
+                )
+                .order_by(
+                    DocumentChunk.chunk_index
+                )
+            )
+            .all()
+        )
 
-        prompt = f"""
-You are a senior financial analyst.
-
-Analyze the following financial document and generate a professional executive summary suitable for a financial intelligence dashboard.
-
-Generate the summary in the following structure:
-
-## Company Overview
-Provide a brief description of the company, business model, products, services, and market position.
-
-## Financial Performance
-Summarize revenue, profitability, growth trends, margins, operating performance, and any important financial indicators mentioned.
-
-## Strategic Priorities
-Describe management objectives, investments, expansion plans, transformation initiatives, acquisitions, partnerships, or future plans.
-
-## Risks and Challenges
-Highlight major risks, uncertainties, operational concerns, regulatory issues, competitive threats, or market challenges.
-
-## Key Highlights
-List the most important achievements, announcements, milestones, or notable developments.
-
-## Executive Takeaway
-Provide a concise 3-5 sentence assessment of the overall health, direction, and outlook of the company.
-
-Requirements:
-- Be factual and objective.
-- Do not invent information.
-- If a section is not present in the document, explicitly state that sufficient information was not available.
-- Use concise professional language.
-- Focus on information relevant to investors, analysts, and finance teams.
-
-Document:
-
-{markdown_content[:12000]}
-"""
-        print("STARTING SUMMARY GENERATION", flush=True)
+        if not chunks:
+            raise ValueError(
+                f"No chunks found for document {doc_id}"
+            )
 
         print(
-            f"Markdown length: {len(markdown_content)}",
+            f"Found {len(chunks)} chunks",
+            flush=True
+        )
+
+        chunk_summaries=[]
+
+        for i, chunk in enumerate(chunks):
+
+            print(
+                f"Summarizing chunk {i + 1}/{len(chunks)}",
+                flush=True
+            )
+            
+
+            try:
+                chunk_summary = (
+                    DocumentSummaryService
+                    .summarize_chunk(
+                        heading=chunk.heading,
+                        page_number=chunk.page_number,
+                        chunk_text=chunk.chunk_text
+                    )
+                )
+
+                chunk_summaries.append(
+                    chunk_summary
+                )
+
+                print(
+                    f"Chunk Summary Length: {len(chunk_summary)}",
+                    flush=True
+                )
+            
+            except Exception as e:
+                print(
+                    f"Chunk {i+1} failed: {e}",
+                    flush=True
+                )
+
+        
+        combined_summary = "\n\n".join(
+            chunk_summaries
+        )
+
+       
+        print(
+            f"Combined Summary Length: {len(combined_summary)}",
             flush=True
         )
 
         print(
-            f"Prompt length: {len(prompt)}",
+            combined_summary[:2000],
             flush=True
         )
 
-        summary = (
-            LLMService.generate_response(
-                prompt
+        with tracer.start_as_current_span(
+            "summary_generation"
+        ) as span:
+
+            span.set_attribute(
+                "document.id",
+                str(doc_id)
             )
-        )
 
-        print("LLM RESPONSE RECEIVED", flush=True)
-
-        document_summary = (
-            DocumentSummary(
-                doc_id=doc_id,
-                content=summary,
-                model_used="nvidia",
-                key_metrics={}
+            span.set_attribute(
+                "markdown.length",
+                len(markdown_content)
             )
-        )
 
-        print("SAVING SUMMARY TO DATABASE", flush=True)
-        
-        session.add(document_summary)
+            if not chunk_summaries:
+                raise ValueError(
+                    f"No chunk summaries generated for document {doc_id}"
+                )
 
-        session.commit()
+            summary=combined_summary
 
-        print("SUMMARY SAVED", flush=True)
+            print(
+                f"SUMMARY LENGTH: {len(summary)}",
+                flush=True
+            )
 
-        session.refresh(
-            document_summary
-        )
+            print(
+                "SUMMARY PREVIEW:",
+                flush=True
+            )
 
-        return document_summary
+            print(
+                summary[:1000],
+                flush=True
+            )
+
+            span.add_event(
+                "llm_response_received"
+            )
+
+            document_summary = (
+                DocumentSummary(
+                    doc_id=doc_id,
+                    content=summary,
+                    model_used="nvidia",
+                    key_metrics={}
+                )
+            )
+
+            session.add(
+                document_summary
+            )
+
+            session.commit()
+
+            span.add_event(
+                "summary_saved"
+            )
+
+            span.set_attribute(
+                "summary.length",
+                len(summary)
+            )
+
+            session.refresh(
+                document_summary
+            )
+
+            return document_summary

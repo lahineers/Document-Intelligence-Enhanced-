@@ -17,7 +17,8 @@ class LLMService:
 
             cls._client = OpenAI(
                 base_url="https://integrate.api.nvidia.com/v1",
-                api_key=settings.nvidia_api_key
+                api_key=settings.nvidia_api_key,
+                timeout=120
             )
 
         return cls._client
@@ -44,22 +45,77 @@ class LLMService:
                 settings.llm_model
             )
 
-            response = client.chat.completions.create(
-                model=settings.llm_model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.1,
-                max_tokens=1000
-            )
+            try:
+                
+                print(
+                    f"Model: {settings.llm_model}",
+                    flush=True
+                )
+
+                print(
+                    "LLM REQUEST START",
+                    flush=True
+                )
+
+                print(
+                    f"Prompt Length: {len(prompt)}",
+                    flush=True
+                )
+
+                response = client.chat.completions.create(
+                    model=settings.llm_model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.1,
+                    max_tokens=1000
+
+
+                )
+                print(
+                    "LLM REQUEST COMPLETE",
+                    flush=True
+                )
+
+                print(
+                    f"Finish Reason: {response.choices[0].finish_reason}",
+                    flush=True
+                )
+
+                if hasattr(response, "usage") and response.usage:
+
+                    print(
+                        f"Prompt Tokens: {response.usage.prompt_tokens}",
+                        flush=True
+                    )
+
+                    print(
+                        f"Completion Tokens: {response.usage.completion_tokens}",
+                        flush=True
+                    )
+
+                    print(
+                        f"Total Tokens: {response.usage.total_tokens}",
+                        flush=True
+                    )
+
+            except Exception as e:
+
+                print(
+                    f"LLM ERROR: {type(e).__name__}: {e}",
+                    flush=True
+                )
+
+                raise
 
             if (
                 hasattr(response, "usage")
                 and response.usage
             ):
+                
 
                 span.set_attribute(
                     "llm.prompt_tokens",
@@ -75,6 +131,7 @@ class LLMService:
                     "llm.total_tokens",
                     response.usage.total_tokens
                 )
+
 
             return (
                 response

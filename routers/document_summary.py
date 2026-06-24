@@ -30,6 +30,33 @@ def generate_summary(
         )
     )
 
+@router.get("/document/{doc_id}")
+def get_summary_by_document(
+    doc_id: UUID,
+    session: SessionDep
+):
+    
+    statement = (
+        select(DocumentSummary)
+        .where(
+            DocumentSummary.doc_id == doc_id
+        )
+    )
+
+    summary = (
+        session.exec(statement)
+        .first()
+    )
+
+    if not summary:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Summary not found"
+        )
+
+    return summary
+
 
 @router.get("/{document_summary_id}",
             response_model=DocumentSummaryRead)

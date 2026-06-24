@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/api";
+import ReactMarkdown from "react-markdown";
 
 export default function Dashboard() {
   const [file, setFile] = useState(null);
@@ -11,6 +12,7 @@ export default function Dashboard() {
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const[summary, setSummary]=useState("");
 
   const loadDocuments = async () => {
     try {
@@ -19,6 +21,67 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const fetchSummary=async(doc_id)=>{
+    try{
+      const res=await api.get(
+        `/document_summary/document/${doc_id}`
+      );
+
+      setSummary(res.data.content);
+    }
+    catch (err){
+      console.error(err);
+
+      setSummary("Summary is still being generated...");
+    }
+  };
+
+  const pollSummary = (doc_id) => {
+
+    let attempts = 0;
+
+    const interval = setInterval(
+      async () => {
+
+        attempts++;
+
+        try {
+
+          const res = await api.get(
+            `/document_summary/document/${doc_id}`
+          );
+
+          setSummary(
+            res.data.content
+          );
+
+          clearInterval(
+            interval
+          );
+
+        } catch (err) {
+            console.log(
+              "Polling failed:",
+              err.response?.status
+            );
+
+            if (attempts >= 120) {
+
+              setSummary(
+                "Summary generation timed out."
+              );
+
+              clearInterval(
+                interval
+              );
+            }
+          }
+
+      },
+      5000
+    );
   };
 
   useEffect(() => {
@@ -32,11 +95,20 @@ export default function Dashboard() {
       formData.append("file", file);
       formData.append("doc_type", docType);
 
-      await api.post("/document", formData);
+      const res=await api.post("/document", formData);
 
       alert("Upload successful");
 
       loadDocuments();
+
+      setSummary(
+        "Generating summary..."
+      );
+
+      pollSummary(
+        res.data.doc_id
+      );
+
     } catch (err) {
       console.error(err);
       alert("Upload failed");
@@ -178,6 +250,7 @@ export default function Dashboard() {
                                     ...selectedDocuments,
                                     doc.doc_id
                                 ]);
+                                fetchSummary(doc.doc_id);
                                 }
                             }}
                             className="border px-2 py-1"
@@ -255,6 +328,18 @@ export default function Dashboard() {
           <strong>Answer:</strong>
           <p>{answer}</p>
         </div>
+      </div>
+
+      {/* Summary */}
+
+      <div className="border p-4 rounded">
+        <h2 className="text-xl font-semibold mb-4">
+          Document Summary
+        </h2>
+
+        <ReactMarkdown>
+          {summary || "No Summary Available"}
+        </ReactMarkdown>
       </div>
 
     </div>

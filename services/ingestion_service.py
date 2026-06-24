@@ -107,13 +107,6 @@ class IngestionService:
                 }
             )
 
-            rabbitmq_service.publish_message(
-                "document.summary.queue",
-                {
-                    "document_id": str(doc_id)
-                }
-            )
-
             rabbitmq_service.close()
 
             span.set_attribute(
