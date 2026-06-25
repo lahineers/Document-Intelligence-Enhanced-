@@ -37,7 +37,7 @@ router=APIRouter(
 async def create_document(
     file: UploadFile = File(...),
     user_id: UUID = Cookie(...),
-    session_id: UUID = Cookie(...),
+    session_id: UUID = Form(...),
     doc_type: str = Form(...),
     session: SessionDep = None
 ):
@@ -205,6 +205,32 @@ def update_document(
     session.refresh(document)
 
     return document
+
+
+@router.get(
+    "/session/{session_id}",
+    response_model=list[DocumentRead]
+)
+def get_documents_by_session(
+    session_id: UUID,
+    session: SessionDep
+):
+    
+    documents = (
+        session.exec(
+            select(Document)
+            .where(
+                Document.session_id == session_id
+            )
+            .order_by(
+                Document.upload_time.desc()
+            )
+        )
+        .all()
+    )
+
+    return documents
+
 
 @router.delete("/{doc_id}")
 def delete_document(

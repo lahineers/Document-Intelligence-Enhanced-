@@ -7,8 +7,12 @@ export default function Dashboard() {
   const [docType, setDocType] = useState("");
 
   const [documents, setDocuments] = useState([]);
-
+  
   const [selectedDocuments, setSelectedDocuments] = useState([]);
+
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [newSessionTitle, setNewSessionTitle] = useState("");
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -22,6 +26,93 @@ export default function Dashboard() {
       console.error(err);
     }
   };
+
+  const createSession = async () => {
+    try {
+
+      const userId =
+        document.cookie
+          .split("; ")
+          .find(row =>
+            row.startsWith("user_id=")
+          )
+          ?.split("=")[1];
+
+      if (!userId) {
+        alert("User ID cookie not found");
+        return;
+      }
+
+      const res = await api.post(
+        "/upload_session",
+        {
+          user_id: userId,
+          title: newSessionTitle
+        }
+      );
+
+      await loadSessions();
+
+      setSelectedSession(
+        res.data.session_id
+      );
+
+      setNewSessionTitle("");
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        "Failed to create session"
+      );
+
+    }
+  };
+
+  const loadSessions = async () => {
+    try {
+
+      const res = await api.get(
+        "/upload_session"
+      );
+      
+      console.log("Sessions:", res.data);
+
+      setSessions(
+        res.data
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+    }
+
+  };
+
+  const loadDocumentsBySession = async (
+    sessionId
+  ) => {
+
+    try {
+
+      const res = await api.get(
+        `/document/session/${sessionId}`
+      );
+
+      setDocuments(
+        res.data
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+    }
+
+  };
+
 
   const fetchSummary=async(doc_id)=>{
     try{
@@ -85,21 +176,39 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    loadDocuments();
+    //loadDocuments();
+    loadSessions();
   }, []);
 
   const uploadDocument = async () => {
+
+
+    if (!selectedSession) {
+      alert(
+        "Please select a session first"
+      );
+
+      return;
+    }
+
     try {
       const formData = new FormData();
 
       formData.append("file", file);
       formData.append("doc_type", docType);
+      formData.append("session_id",selectedSession);
+
+
+      console.log(
+        "SELECTED SESSION:",
+        selectedSession
+      );
 
       const res=await api.post("/document", formData);
 
       alert("Upload successful");
 
-      loadDocuments();
+      loadDocumentsBySession(selectedSession);
 
       setSummary(
         "Generating summary..."
@@ -202,6 +311,85 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Session */}
+
+      <div className="border p-4 rounded">
+
+        <h2 className="text-xl font-semibold mb-4">
+          Upload Sessions
+        </h2>
+
+
+        <div className="flex gap-2 mb-4">
+          <input
+            className="border p-2 flex-1"
+            placeholder="Session Name"
+            value={newSessionTitle}
+            onChange={(e) =>
+              setNewSessionTitle(
+                e.target.value
+              )
+            }
+          />
+
+          <button
+            onClick={createSession}
+            className="border px-4 py-2"
+          >
+            Create
+          </button>
+
+        </div>
+
+
+
+        {sessions.map((session) => (
+
+          <div
+            key={session.session_id}
+            className={`border p-2 mb-2 cursor-pointer ${
+              selectedSession === session.session_id
+                ? "bg-blue-100"
+                : ""
+            }`}
+            onClick={() => {
+              if (
+                selectedSession === session.session_id
+              ) {
+
+                setSelectedSession(null);
+
+                setDocuments([]);
+
+              } else {
+
+                setSelectedSession(
+                  session.session_id
+                );
+
+                loadDocumentsBySession(
+                  session.session_id
+                );
+
+              }
+
+            }}
+          >
+
+            <strong>
+              {session.title}
+            </strong>
+
+            <div>
+              {session.status}
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
       {/* Documents */}
 
       <div className="border p-4 rounded">
@@ -209,12 +397,27 @@ export default function Dashboard() {
           Documents
         </h2>
 
+        {selectedSession && (
+          <p className="mb-2 text-sm">
+            Session Selected
+          </p>
+        )}
+
         <button
           onClick={loadDocuments}
           className="border px-4 py-2 mb-4"
         >
           Refresh
         </button>
+
+
+        {!selectedSession ? (
+          <p>Select a session to view documents.</p>
+        ) : (
+          <div className="max-h-[450px] overflow-y-auto border">
+            {/* existing table */}
+          </div>
+        )}
 
         <div className="max-h-[450px] overflow-y-auto border">
             <table className="w-full border">
