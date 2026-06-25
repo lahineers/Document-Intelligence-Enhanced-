@@ -46,7 +46,50 @@ def create_upload_session(
 
     return upload_session
 
+@router.get("/{session_id}/stats")
+def get_session_stats(
+    session_id: UUID,
+    session: SessionDep
+):
 
+    documents = (
+        session.exec(
+            select(Document)
+            .where(
+                Document.session_id == session_id
+            )
+        )
+        .all()
+    )
+
+    return {
+        "total_documents": len(documents),
+
+        "completed": len([
+            d for d in documents
+            if d.processing_status == "completed"
+        ]),
+
+        "processing": len([
+            d for d in documents
+            if d.processing_status in [
+                "extracting",
+                "chunking",
+                "embedding",
+                "processing"
+            ]
+        ]),
+
+        "failed": len([
+            d for d in documents
+            if d.processing_status == "failed"
+        ]),
+
+        "pending": len([
+            d for d in documents
+            if d.processing_status == "pending"
+        ])
+    }
 
 @router.get("", response_model=list[UploadSessionRead])
 def read_uploadsessions(
