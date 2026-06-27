@@ -8,6 +8,14 @@ class QueryRequest(SQLModel):
 
     query: str
     document_id:UUID
+    
+
+class SessionQueryRequest(
+    SQLModel
+):
+    query: str
+    session_id: UUID
+
 
 class QueryCreate(SQLModel):
 

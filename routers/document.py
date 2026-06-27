@@ -232,6 +232,40 @@ def get_documents_by_session(
     return documents
 
 
+
+@router.post("/{doc_id}/retry-summary")
+def retry_summary(
+    doc_id: UUID,
+    session: SessionDep
+):
+
+    document = session.get(
+        Document,
+        doc_id
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    rabbitmq_service = RabbitMQService()
+
+    rabbitmq_service.publish_message(
+        "document.summary.queue",
+        {
+            "document_id": str(doc_id)
+        }
+    )
+
+    rabbitmq_service.close()
+
+    return {
+        "message":
+        "Summary job queued"
+    }
+
 @router.delete("/{doc_id}")
 def delete_document(
     doc_id: UUID,

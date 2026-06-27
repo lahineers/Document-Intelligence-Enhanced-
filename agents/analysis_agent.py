@@ -302,3 +302,76 @@ At the end of every response include the following note:
             return {
                 "comparison": comparison
             }
+        
+
+    @staticmethod
+    def answer_session_question(
+        question,
+        session_id,
+        session
+    ):
+        logger.info(
+            "processing session question"
+        )
+
+        with tracer.start_as_current_span(
+            "RAG - Answer Session Question"
+        ) as span:
+
+            chunks = (
+                RetrievalAgent
+                .retrieve_by_session(
+                    question,
+                    session_id,
+                    session
+                )
+            )
+
+            logger.info(
+                f"Retrieved {len(chunks)} chunks"
+            )
+
+            span.set_attribute(
+                "rag.chunk_count",
+                len(chunks)
+            )
+
+            context = "\n\n".join(
+                chunk.chunk_text
+                for chunk in chunks
+            )
+
+            memory_context = (
+                MemoryAgent
+                .build_context(
+                    session
+                )
+            )
+
+            with tracer.start_as_current_span(
+                "LLM - Generate Session Answer"
+            ):
+
+                response = (
+                    AnalysisAgent.agent.run(
+                        f"""
+    Previous Conversation:
+    {memory_context}
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+    """
+                    )
+                )
+
+                logger.info(
+                    "Session Answer Generated"
+                )
+
+            return {
+                "answer": response.content,
+                "sources": chunks
+            }

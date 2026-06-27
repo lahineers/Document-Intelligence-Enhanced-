@@ -4,7 +4,8 @@ from db import SessionDep
 
 from schemas.query import (
     QueryRequest,
-    QueryCreate
+    QueryCreate,
+    SessionQueryRequest
 )
 
 from services.query_service import QueryService
@@ -56,6 +57,41 @@ def ask_question(
         ),
         session
     )
+
+    return {
+        "answer": answer,
+        "sources": [
+            {
+                "chunk_id":
+                str(chunk.chunk_id),
+
+                "heading":
+                chunk.heading
+            }
+            for chunk in chunks
+        ]
+    }
+
+
+
+@router.post("/session")
+def ask_session_question(
+    request: SessionQueryRequest,
+    session: SessionDep
+):
+
+    result = (
+        OrchestratorAgent
+        .handle_session_request(
+            request.query,
+            request.session_id,
+            session
+        )
+    )
+
+    answer = result["answer"]
+
+    chunks = result["sources"]
 
     return {
         "answer": answer,

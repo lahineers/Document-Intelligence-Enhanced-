@@ -117,6 +117,13 @@ def callback(
                 markdown_content,
                 session
             )
+            document.processing_status = (
+                "completed"
+            )
+
+            session.add(document)
+
+            session.commit()
 
             print(
                 f"Summary created for {document_id}",

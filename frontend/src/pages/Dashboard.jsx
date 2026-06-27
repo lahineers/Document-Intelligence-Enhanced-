@@ -166,11 +166,70 @@ export default function Dashboard() {
   };
 
   const fetchSummary = async (doc_id) => {
-    try { const res = await api.get(`/document_summary/document/${doc_id}`); setSummary(res.data.content); }
-    catch (err) {
+    try {
+
+      const res = await api.get(
+        `/document_summary/document/${doc_id}`
+      );
+
+      setSummary(
+        res.data.content
+      );
+
+    } catch (err) {
+
       console.error(err);
-      setSummary("⚙️ Summary generation in progress. Please wait a few moments and try again.");
-      pollSummary(doc_id);
+
+      if (
+        err.response?.status === 404
+      ) {
+
+        setSummary(
+          "⚙️ Summary generation in progress. Please wait a few moments and try again."
+        );
+
+        pollSummary(doc_id);
+
+      } else if (
+        err.response?.status === 500
+      ) {
+
+        setSummary(
+          "❌ Failed to load the summary due to a server error."
+        );
+
+      } else {
+
+        setSummary(
+          "❌ Unable to fetch the summary. Please try again later."
+        );
+
+      }
+
+    }
+  };
+
+  const retrySummary = async (docId) => {
+    try {
+
+      await api.post(
+        `/document/${docId}/retry-summary`
+      );
+
+      setSummary(
+        "⚙️ Summary generation restarted..."
+      );
+
+      pollSummary(docId);
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        "Failed to restart summary generation."
+      );
+
     }
   };
 
@@ -211,14 +270,68 @@ export default function Dashboard() {
 
   const askQuestion = async () => {
     try {
+
       let res;
+
       if (selectedDocuments.length === 1) {
-        res = await api.post("/query", { query: question, document_id: selectedDocuments[0] });
-      } else if (selectedDocuments.length >= 2) {
-        res = await api.post("/compare", { query: question, document_ids: selectedDocuments });
-      } else { alert("Select at least one document"); return; }
-      setAnswer(res.data.answer);
-    } catch (err) { console.error(err); alert("Request failed"); }
+
+        res = await api.post(
+          "/query",
+          {
+            query: question,
+            document_id:
+              selectedDocuments[0]
+          }
+        );
+
+      } else if (
+        selectedDocuments.length >= 2
+      ) {
+
+        res = await api.post(
+          "/comparison",
+          {
+            question: question,
+            document_ids: selectedDocuments
+          }
+        );
+
+      } else if (
+        selectedSession
+      ) {
+
+        res = await api.post(
+          "/query/session",
+          {
+            query: question,
+            session_id:
+              selectedSession
+          }
+        );
+
+      } else {
+
+        alert(
+          "Select a session first"
+        );
+
+        return;
+      }
+
+      setAnswer(
+        res.data.answer ??
+        res.data.comparison
+      );
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert(
+        "Request failed"
+      );
+
+    }
   };
 
   const handleSessionClick = (session) => {
@@ -680,6 +793,23 @@ export default function Dashboard() {
                 {selectedDocument ? summary : "Select a document to view its AI-generated summary."}
               </ReactMarkdown>
             </div>
+
+            {selectedDocument && (
+
+                <NavyButton
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    justifyContent: "center",
+                  }}
+                  onClick={() =>
+                    retrySummary(selectedDocument.doc_id)
+                  }
+                >
+                  Retry Summary
+                </NavyButton>
+
+              )}
           </div>
         </aside>
       </div>

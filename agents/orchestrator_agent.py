@@ -74,3 +74,18 @@ Analysis must always be performed by the Analysis Agent.
                 session
             )
         )
+    
+    @staticmethod
+    def handle_session_request(
+        question,
+        session_id,
+        session
+    ):
+        return (
+            AnalysisAgent
+            .answer_session_question(
+                question,
+                session_id,
+                session
+            )
+        )

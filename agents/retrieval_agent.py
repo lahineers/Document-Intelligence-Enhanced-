@@ -48,3 +48,20 @@ Follow these rules strictly:
             )
         )
         return chunks
+    
+    @staticmethod
+    def retrieve_by_session(
+        question,
+        session_id,
+        session
+    ):
+        chunks = (
+            RetrievalService
+            .retrieve_chunks_by_session(
+                query=question,
+                session_id=session_id,
+                session=session,
+            )
+        )
+
+        return chunks

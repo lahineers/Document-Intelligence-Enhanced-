@@ -48,6 +48,8 @@ class DocumentUpdate(SQLModel):
         Literal[
             "pending",
             "processing",
+            "chunking",
+            "summarizing"
             "completed",
             "failed"
         ]

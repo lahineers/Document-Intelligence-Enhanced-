@@ -103,7 +103,7 @@ def callback(
             )
 
             document.processing_status = (
-                "completed"
+                "summarizing"
             )
 
             session.add(document)
